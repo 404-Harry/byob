@@ -32,6 +32,12 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+# Validate arguments
+if [[ "$ROLE" == "app" && "$DB_SERVER_IP" == "localhost" ]]; then
+  echo "Error: --db-server must be specified when using --role app"
+  exit 1
+fi
+
 echo "DB Server IP: $DB_SERVER_IP"
 echo "Role: $ROLE"
 
@@ -69,6 +75,14 @@ if [[ "$ROLE" == "db" || "$ROLE" == "both" ]]; then
 		sudo systemctl enable postgresql
 	fi
 
+	# Get PostgreSQL version
+	PG_VERSION=$(ls /etc/postgresql/ | head -1)
+	if [ -z "$PG_VERSION" ]; then
+		echo "Error: Could not determine PostgreSQL version"
+		exit 1
+	fi
+	echo "PostgreSQL version: $PG_VERSION"
+
 	# Check if user exists
 	sudo -u postgres psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='byob_user'" | grep -q 1
 	if [ $? -ne 0 ]; then
@@ -89,10 +103,12 @@ if [[ "$ROLE" == "db" || "$ROLE" == "both" ]]; then
 	fi
 
 	# Configure for remote access
-	sudo sed -i "s/#listen_addresses = 'localhost'/listen_addresses = '*'/" /etc/postgresql/12/main/postgresql.conf
-	grep -q "host    byob_db     byob_user" /etc/postgresql/12/main/pg_hba.conf
+	PG_CONF="/etc/postgresql/$PG_VERSION/main/postgresql.conf"
+	PG_HBA="/etc/postgresql/$PG_VERSION/main/pg_hba.conf"
+	sudo sed -i "s/#listen_addresses = 'localhost'/listen_addresses = '*'/" "$PG_CONF"
+	grep -q "host    byob_db     byob_user" "$PG_HBA"
 	if [ $? -ne 0 ]; then
-		echo "host    byob_db     byob_user     0.0.0.0/0     md5" | sudo tee -a /etc/postgresql/12/main/pg_hba.conf
+		echo "host    byob_db     byob_user     0.0.0.0/0     md5" | sudo tee -a "$PG_HBA"
 	fi
 	sudo systemctl restart postgresql
 
@@ -149,6 +165,10 @@ else
 fi
 echo "Database URI set to: $SQLALCHEMY_DATABASE_URI"
 
+# Save to .env file for persistence
+echo "SQLALCHEMY_DATABASE_URI=$SQLALCHEMY_DATABASE_URI" > .env
+echo "Environment saved to .env file"
+
 # Configure Nginx if app role
 if [[ "$ROLE" == "app" || "$ROLE" == "both" ]]; then
 	if [ ! -f /etc/nginx/sites-available/byob ]; then
@@ -198,16 +218,19 @@ case $agreeTo in
     fi
     if [[ "$ROLE" == "app" || "$ROLE" == "both" ]]; then
         echo "To start the web GUI:"
+        echo "  source .env"
         echo "  python3 run.py --port 5000 &"
         echo "  python3 run.py --port 5001 &"
         echo "  python3 run.py --port 5002 &"
         echo ""
         echo "To start C2 servers:"
         echo "  cd ../byob"
+        echo "  source ../web-gui/.env"
         echo "  python3 -m byob.server --database \"$SQLALCHEMY_DATABASE_URI\" --port 1337 &"
         echo "  python3 -m byob.server --database \"$SQLALCHEMY_DATABASE_URI\" --port 1338 &"
         echo ""
         echo "Access the web interface at: http://command.lan"
+        echo "Note: Edit /etc/nginx/sites-available/byob to add other server IPs for load balancing"
     fi
     exit
     ;;
