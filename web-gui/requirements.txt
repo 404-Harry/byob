@@ -18,5 +18,6 @@ requests==2.20.0
 pycryptodomex==3.8.1
 py-cryptonight>=0.2.4
 opencv-python;python_version>'3'
+psycopg2-binary
 pypiwin32==223;sys.platform=='win32'
 pyHook==1.5.1;sys.platform=='win32'

