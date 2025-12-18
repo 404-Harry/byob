@@ -151,6 +151,17 @@ else
 	echo "If you run into issues generating a Windows payload, please uninstall docker and rerun this script"
 fi
 
+# Install Docker Compose if not present
+which docker-compose > /dev/null
+if test $? -ne 0
+then
+	echo "Installing Docker Compose..."
+	sudo curl -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+	sudo chmod +x /usr/local/bin/docker-compose
+else
+	echo "Confirmed Docker Compose is installed."
+fi
+
 # Install Python packages
 echo "Installing Python packages..."
 python3 -m pip install --upgrade pip
@@ -217,17 +228,26 @@ case $agreeTo in
         echo "Database URI: postgresql://byob_user:byob_password@$DB_SERVER_IP/byob_db"
     fi
     if [[ "$ROLE" == "app" || "$ROLE" == "both" ]]; then
-        echo "To start the web GUI:"
+        echo "To start services manually:"
         echo "  source .env"
         echo "  python3 run.py --port 5000 &"
         echo "  python3 run.py --port 5001 &"
         echo "  python3 run.py --port 5002 &"
-        echo ""
-        echo "To start C2 servers:"
         echo "  cd ../byob"
-        echo "  source ../web-gui/.env"
         echo "  python3 -m byob.server --database \"$SQLALCHEMY_DATABASE_URI\" --port 1337 &"
         echo "  python3 -m byob.server --database \"$SQLALCHEMY_DATABASE_URI\" --port 1338 &"
+        echo ""
+        echo "To start with systemd services:"
+        echo "  sudo cp byob-web.service /etc/systemd/system/"
+        echo "  sudo cp ../byob/byob-c2.service /etc/systemd/system/"
+        echo "  sudo systemctl daemon-reload"
+        echo "  sudo systemctl enable byob-web"
+        echo "  sudo systemctl enable byob-c2"
+        echo "  sudo systemctl start byob-web"
+        echo "  sudo systemctl start byob-c2"
+        echo ""
+        echo "To start with Docker Compose (from repo root):"
+        echo "  docker-compose up -d"
         echo ""
         echo "Access the web interface at: http://command.lan"
         echo "Note: Edit /etc/nginx/sites-available/byob to add other server IPs for load balancing"
